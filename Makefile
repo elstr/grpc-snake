@@ -7,9 +7,8 @@ proxy:
 	docker build -t snake/envoy -f ./envoy.Dockerfile .
 	docker run -d -p 8080:8080 -p 9901:9901 snake/envoy
 
-server:
+run-server:
 	go run server/server.go
 
 ui:
-	cd ui; npm run start;
-
+	cd snake-ui; npm run start;

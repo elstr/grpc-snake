@@ -1,33 +1,63 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
-const {TestRequest} = require('./snake_pb.js');
-const {SnakeServiceClient} = require('./snake_grpc_web_pb.js');
+import React, { useEffect, useState, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
-function App() {
-  const snake =  new SnakeServiceClient('http://' + window.location.hostname + ':8080', null, null);
-  const req = new TestRequest()
-  req.setMessage("this is a test")
-  snake.testConnection(req, {}, (err, res) => {
-    console.log({err})
-    console.log({res})
-  })
+import { TestRequest, NewGameRequest, Player } from './snake_pb.js'
+import { SnakeServiceClient } from "./snake_grpc_web_pb"
+
+const App = () => {
+  const playerRef = useRef(null);
+  const difficultyRef = useRef(null);
+  const [connErr, setConnError] = useState(false)
+  
+  const [game, setGame] = useState()
+  const [player, setPlayer] = useState()
+  const [difficulty, setDifficulty] = useState()
+  
+  const snake = new SnakeServiceClient('http://' + window.location.hostname + ':8080', null, null);
+
+  useEffect( () => {
+      const req = new TestRequest()
+      req.setMessage("test connection request")
+      snake.testConnection(req, {}, (err, _) => {
+        if(err) setConnError(true)
+      })
+  }, [])
+
+  const startGame = () => {
+    if(!connErr) {
+      const gameRequest = new NewGameRequest()
+      const playerName = playerRef.current.value
+      const selectedDiff = difficultyRef.current.value
+
+      const player = new Player()
+      player.setId(uuidv4());
+      player.setName(playerName)
+
+      setPlayer(player)
+      setDifficulty(selectedDiff)
+
+      gameRequest.setPlayer(player)
+      gameRequest.setDif(selectedDiff)
+      
+      snake.startNewGame(gameRequest, {}, (err, res) => {
+        console.log({err})
+        console.log({res})
+      })
+
+    }
+  }
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <label>Name:</label>
+      <input ref={playerRef} type="text"  />
+      <select defaultValue="-1" ref={difficultyRef}>
+        <option value="-1" disabled >Select Difficulty</option>
+        <option value="0">Slug</option>
+        <option value="1">Worm</option>
+        <option value="2">Python</option>
+      </select>
+      <button onClick={startGame}>Start Game!</button>
     </div>
   );
 }
