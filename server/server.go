@@ -9,8 +9,9 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/elstr/grpc-snake/proto"
+	"github.com/elstr/grpc-snake/server/gameroom"
+	helpers "github.com/elstr/grpc-snake/server/helpers"
 	"github.com/elstr/grpc-snake/server/matcher"
-	"github.com/elstr/grpc-snake/server/shared"
 )
 
 const (
@@ -19,30 +20,35 @@ const (
 
 type snakeServer struct {
 	pb.UnimplementedSnakeServiceServer
-	matcher matcher.Instance
+	matcher  matcher.Instance
+	gameRoom gameroom.Instance
 }
 
 func (*snakeServer) TestConnection(context context.Context, req *pb.TestRequest) (*pb.TestResponse, error) {
-	fmt.Println("Got a new test connection request")
+	// fmt.Println("Got a new test connection request")
 	msg := req.GetMessage()
 	return &pb.TestResponse{Result: msg}, nil
 }
 func (s *snakeServer) StartNewGame(context context.Context, req *pb.NewGameRequest) (*pb.NewGameResponse, error) {
-	fmt.Println("Got a new game request")
+	// fmt.Println("Got a new game request")
 	playerData := req.GetPlayer()
 
-	player := shared.NewPlayer(playerData.Id, playerData.Name)
-	match := s.matcher.Match(&player)
+	player := helpers.NewPlayer(playerData.Id, playerData.Name)
+	match := s.matcher.Match(&player) // This returns a channel
+	playersMatched := <-match         // This takes the values of the channel so I can access them
+	gameRoom, _ := s.gameRoom.NewGameRoom(*playersMatched.PlayerOne, *playersMatched.PlayerTwo)
+	// fmt.Println("StartNewGame - Game Room -", gameRoom)
 
-	fmt.Println("StartNewGame - MATCH channel -", <-match)
+	res := &pb.NewGameResponse{Game: gameRoom}
 
-	return nil, nil
+	fmt.Println(res)
+	return res, nil
 }
 
 func newServer() *snakeServer {
 	s := &snakeServer{
 		matcher:  matcher.Instanciate(),
-		gameRoom: gameRoom.Instanciate(),
+		gameRoom: gameroom.Instanciate(),
 	}
 	return s
 }
