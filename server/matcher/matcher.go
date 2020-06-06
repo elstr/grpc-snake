@@ -1,15 +1,13 @@
 package matcher
 
 import (
-	"fmt"
-
-	"github.com/elstr/grpc-snake/server/shared"
+	helpers "github.com/elstr/grpc-snake/server/helpers"
 )
 
 // Match struct will hold to the players
 type Match struct {
-	PlayerOne *shared.Player
-	PlayerTwo *shared.Player
+	PlayerOne *helpers.Player
+	PlayerTwo *helpers.Player
 }
 
 // Instance enables you to use a Match instance
@@ -26,8 +24,8 @@ func Instanciate() Instance {
 }
 
 // Match will make the match between two players
-func (i *Instance) Match(player *shared.Player) chan *Match {
-	fmt.Println("Match service - player: ", *player)
+func (i *Instance) Match(player *helpers.Player) chan *Match {
+	// fmt.Println("Match service - player: ", *player)
 
 	// https://www.opsdash.com/blog/job-queues-in-go.html
 	select {
@@ -41,7 +39,7 @@ func (i *Instance) Match(player *shared.Player) chan *Match {
 		i.matched <- waitingPlayers
 
 	default:
-		fmt.Println("entra en waiting porque entra en default")
+		// fmt.Println("entra en waiting porque entra en default")
 		i.waitingPlayers <- &Match{PlayerOne: player}
 	}
 

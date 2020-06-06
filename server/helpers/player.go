@@ -1,4 +1,4 @@
-package shared
+package helpers
 
 // Player structure
 type Player struct {
