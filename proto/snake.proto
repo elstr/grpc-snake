@@ -59,6 +59,7 @@ message MoveRequest {
     string roomId = 1;
     Player player = 2;
     Snake snake = 3;
+    int32 snakeIdx = 4;
 }
 message MoveResponse {
     bool isValid = 1;

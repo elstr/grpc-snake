@@ -4,15 +4,17 @@ import "./styles.css"
 
 import { getCellCs } from "../../helpers/utils"
 
-const Grid = ({ isGameOver, snakes, snack, grid, gridSize }) => (
+const Grid = ({ isGameOver, snakes, food, grid, gridSize, snakeIdx }) => (
     <div>
       {grid.map(y => (
         <Row
           y={y}
           key={y}
+          food={food}
           grid={grid}
-          snack={snack}
+          // snack={snack}
           snakes={snakes}
+          snakeIdx={snakeIdx}
           gridSize={gridSize}
           isGameOver={isGameOver}
         />
@@ -20,7 +22,7 @@ const Grid = ({ isGameOver, snakes, snack, grid, gridSize }) => (
     </div>
   );
   
-  const Row = ({ grid, isGameOver, snakes, snack, y, gridSize }) => {
+  const Row = ({ grid, isGameOver, snakes, food, y, gridSize, snakeIdx }) => {
     return (
       <div className="grid-row">
         {grid.map(x => (
@@ -28,8 +30,10 @@ const Grid = ({ isGameOver, snakes, snack, grid, gridSize }) => (
             x={x}
             y={y}
             key={x}
-            snack={snack}
+            food={food}
+            // snack={snack}
             snakes={snakes}
+            snakeIdx={snakeIdx}
             gridSize={gridSize}
             isGameOver={isGameOver}
           />
@@ -38,8 +42,8 @@ const Grid = ({ isGameOver, snakes, snack, grid, gridSize }) => (
     )
   };
   
-  const Cell = ({ isGameOver, snakes, snack, x, y, gridSize }) => (
-    <div className={getCellCs(isGameOver, snakes, snack, x, y, gridSize)} />
+  const Cell = ({ isGameOver, snakes, food, x, y, gridSize, snakeIdx }) => (
+    <div className={getCellCs(isGameOver, snakes, food, x, y, gridSize, snakeIdx)} />
   );
 
 export default Grid

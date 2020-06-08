@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import logo from './assets/logo.png';
 
 import {
-  BrowserRouter as Router,
   Switch,
   Route,
   withRouter
@@ -12,6 +11,7 @@ import {
 import Spinner from "./components/Spinner";
 import GameRoom from "./pages/GameRoom"
 
+import { buildGrid } from "./helpers/utils"
 import { TestRequest, NewGameRequest, Player } from './snake_pb.js'
 import { SnakeServiceClient } from "./snake_grpc_web_pb"
 
@@ -22,41 +22,64 @@ const App = (props) => {
   const [loading, setLoading] = useState(false)
   const [game, setGame] = useState()
   const [player, setPlayer] = useState()
-  const [difficulty, setDifficulty] = useState()
 
-  const snake = new SnakeServiceClient('http://' + window.location.hostname + ':8080', null, null);
+  const snakeService = new SnakeServiceClient('http://' + window.location.hostname + ':8080', null, null);
 
   useEffect(() => {
     const req = new TestRequest()
     req.setMessage("test connection request")
-    snake.testConnection(req, {}, (err, _) => {
+    snakeService.testConnection(req, {}, (err, _) => {
       if (err) setError(true)
     })
   }, [])
 
   const startGame = () => {
+    console.log({snakeService})
     if (!error) {
       const gameRequest = new NewGameRequest()
       const playerName = playerRef.current.value
       const selectedDiff = difficultyRef.current.value
 
-      const player = new Player()
-      player.setId(uuidv4());
-      player.setName(playerName)
+      const pbPlayer = new Player()
+      const playerID = uuidv4()
+      pbPlayer.setId(playerID);
+      pbPlayer.setName(playerName)
+
+      const newPlayer = { id: pbPlayer.array[0], name: pbPlayer.array[1] }
 
       setLoading(true)
-      setPlayer(player)
-      setDifficulty(selectedDiff)
+      setPlayer(newPlayer)
 
-      gameRequest.setPlayer(player)
+      gameRequest.setPlayer(pbPlayer)
       gameRequest.setDif(selectedDiff)
 
 
-      snake.startNewGame(gameRequest, {}, async (err, gameRoom) => {
+      snakeService.startNewGame(gameRequest, {}, async (err, gameRoom) => {
         if (err) setError(true)
         else {
-          console.log({gameRoom})
-          setGame(gameRoom)
+          const res = await gameRoom
+          const gameRoomConfig = res['array'][0]
+          const [, players, boardConfig, snakes, speed] = gameRoomConfig
+          const snakeIdx = players.map(p => p[1] === playerID).indexOf(true)
+          const player = { ...players[snakeIdx] }
+          const GRID = buildGrid(boardConfig)
+          const gridSize = GRID.length - 1
+
+          const gameConfig = {
+            GRID,
+            gridSize,
+            roomID: newPlayer.id,
+            player,
+            players,
+            pbPlayer,
+            boardConfig,
+            snakes,
+            speed,
+            snakeIdx,
+            food: boardConfig[2]
+          }
+
+          setGame(gameConfig)
           props.history.push("/gameroom")
         }
         setLoading(false)
@@ -67,14 +90,14 @@ const App = (props) => {
 
   return (
     <>
-      <img src={logo} alt="Logo" style={{marginTop: "1em"}}/>
+      <img src={logo} alt="Logo" style={{ marginTop: "1em" }} />
       <Switch>
-
         <Route exact path="/">
           <div className="App">
             {loading ?
               <>
                 <p>Waiting for an opponent to connect</p>
+                <br />
                 <Spinner />
               </> :
               <>
@@ -92,7 +115,7 @@ const App = (props) => {
           </div>
         </Route>
         <Route exact path="/gameroom" >
-          <GameRoom game={game} />
+          <GameRoom game={game} snakeService={snakeService} />
         </Route>
       </Switch>
     </>

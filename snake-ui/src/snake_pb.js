@@ -1804,7 +1804,8 @@ proto.MoveRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     roomid: jspb.Message.getFieldWithDefault(msg, 1, ""),
     player: (f = msg.getPlayer()) && proto.Player.toObject(includeInstance, f),
-    snake: (f = msg.getSnake()) && proto.Snake.toObject(includeInstance, f)
+    snake: (f = msg.getSnake()) && proto.Snake.toObject(includeInstance, f),
+    snakeidx: jspb.Message.getFieldWithDefault(msg, 4, 0)
   };
 
   if (includeInstance) {
@@ -1854,6 +1855,10 @@ proto.MoveRequest.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.Snake;
       reader.readMessage(value,proto.Snake.deserializeBinaryFromReader);
       msg.setSnake(value);
+      break;
+    case 4:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setSnakeidx(value);
       break;
     default:
       reader.skipField();
@@ -1905,6 +1910,13 @@ proto.MoveRequest.serializeBinaryToWriter = function(message, writer) {
       3,
       f,
       proto.Snake.serializeBinaryToWriter
+    );
+  }
+  f = message.getSnakeidx();
+  if (f !== 0) {
+    writer.writeInt32(
+      4,
+      f
     );
   }
 };
@@ -1999,6 +2011,24 @@ proto.MoveRequest.prototype.clearSnake = function() {
  */
 proto.MoveRequest.prototype.hasSnake = function() {
   return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional int32 snakeIdx = 4;
+ * @return {number}
+ */
+proto.MoveRequest.prototype.getSnakeidx = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.MoveRequest} returns this
+ */
+proto.MoveRequest.prototype.setSnakeidx = function(value) {
+  return jspb.Message.setProto3IntField(this, 4, value);
 };
 
 

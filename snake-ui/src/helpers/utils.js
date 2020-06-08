@@ -8,20 +8,20 @@ const buildGrid = boardConfig => {
     return grid
 }
 
-const getCellCs = (isGameOver, snakes, food, x, y, gridSize) => {
+const getCellCs = (isGameOver, snakes, food, x, y, gridSize, snakeIdx) => {
     return cs('grid-cell', {
         'grid-cell-border': isBorder(x, y, gridSize),
-        'grid-cell-snake1': isSnake(x, y, snakes.snake1),
-        'grid-cell-snake2': isSnake(x, y, snakes.snake2),
-        // 'grid-cell-food': isPosition(
-        //     x,
-        //     y,
-        //     food[0],
-        //     food[1]
-        // ),
-        // 'grid-cell-hit':
-        //     isGameOver &&
-        //     isPosition(x, y, getSnakeHead(snakes[0]).x, getSnakeHead(snakes[0]).y),
+        'grid-cell-snake0': isSnake(x, y, snakes[0]),
+        'grid-cell-snake1': isSnake(x, y, snakes[1]),
+        'grid-cell-food': isPosition(
+            x,
+            y,
+            food[0][0],
+            food[0][1]
+        ),
+        'grid-cell-hit':
+            isGameOver &&
+            isPosition(x, y, getSnakeHead(snakes[snakeIdx])[0], getSnakeHead(snakes[snakeIdx])[1]),
     });
 }
 
@@ -29,9 +29,9 @@ const getSnakeTail = snake => snake.slice(1);
 
 const getSnakeHead = snake => snake[0]
 
-const isBorder = (x, y, gridSize) => x === 0 || y === 0 || x === gridSize || y === gridSize;
+const isBorder = (x, y, gridSize) => (x === 0 || y === 0 || x === gridSize || y === gridSize);
 
-const isPosition = (x, y, diffX, diffY) => x === diffX && y === diffY;
+const isPosition = (x, y, diffX, diffY) => (x === diffX && y === diffY);
 
 const isSnake = (x, y, snakeCoordinates) => {
     return snakeCoordinates.filter(coordinate =>
@@ -44,32 +44,29 @@ const getSnakeWithoutStub = snake => snake.slice(0, snake.length - 1);
 const getRandomNumberFromRange = (min, max) =>
     Math.floor(Math.random() * (max - min + 1) + min);
 
-const getRandomCoordinate = (gridSize) => ({
-    x: getRandomNumberFromRange(1, gridSize - 1),
-    y: getRandomNumberFromRange(1, gridSize - 1),
-});
+const getRandomCoordinate = (gridSize) => [getRandomNumberFromRange(1, gridSize - 1), getRandomNumberFromRange(1, gridSize - 1)]
 
 
-const getIsSnakeEating = ({ snake, snack }) =>
+const getIsSnakeEating = ({ snake, food }) =>
     isPosition(
         getSnakeHead(snake)[0],
         getSnakeHead(snake)[1],
-        snack.coordinate[0],
-        snack.coordinate[1]
+        food[0],
+        food[1]
     )
 
-    const getIsSnakeOutside = (snake, gridSize) => 
-  (getSnakeHead(snake)[0] >= gridSize ||
-    getSnakeHead(snake)[1] >= gridSize ||
-    getSnakeHead(snake)[0] <= 0 ||
-    getSnakeHead(snake)[1] <= 0
-  )
+const getIsSnakeOutside = (snake, gridSize) =>
+    (getSnakeHead(snake)[0] >= gridSize ||
+        getSnakeHead(snake)[1] >= gridSize ||
+        getSnakeHead(snake)[0] <= 0 ||
+        getSnakeHead(snake)[1] <= 0
+    )
 
 const getIsSnakeClumy = snake =>
-     isSnake(
-    getSnakeHead(snake)[0],
-    getSnakeHead(snake)[1],
-    getSnakeTail(snake))
+    isSnake(
+        getSnakeHead(snake)[0],
+        getSnakeHead(snake)[1],
+        getSnakeTail(snake))
 
 
 export {

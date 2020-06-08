@@ -29,14 +29,14 @@
   background-color: darkorchid;
 }
 
-.grid-cell-snake1 {
+.grid-cell-snake0 {
   background-color: darkseagreen;
 }
-.grid-cell-snake2 {
-  background-color: darksalmon;
+.grid-cell-snake1 {
+  background-color: dodgerblue;
 }
 
-.grid-cell-snack {
+.grid-cell-food {
   background-color: darkorange;
 }
 

@@ -29,20 +29,71 @@ func (*snakeServer) TestConnection(context context.Context, req *pb.TestRequest)
 	msg := req.GetMessage()
 	return &pb.TestResponse{Result: msg}, nil
 }
+
 func (s *snakeServer) StartNewGame(context context.Context, req *pb.NewGameRequest) (*pb.NewGameResponse, error) {
 	// fmt.Println("Got a new game request")
 	playerData := req.GetPlayer()
-
 	player := helpers.NewPlayer(playerData.Id, playerData.Name)
+
 	match := s.matcher.Match(&player) // This returns a channel
 	playersMatched := <-match         // This takes the values of the channel so I can access them
+
 	gameRoom, _ := s.gameRoom.NewGameRoom(*playersMatched.PlayerOne, *playersMatched.PlayerTwo)
-	// fmt.Println("StartNewGame - Game Room -", gameRoom)
+	s.gameRoom.GameRooms[playerData.Id] = gameRoom
 
 	res := &pb.NewGameResponse{Game: gameRoom}
 
-	fmt.Println(res)
 	return res, nil
+}
+
+func (s *snakeServer) MoveSnake(context context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+	roomID := req.GetRoomId()
+	snakeIdx := req.GetSnakeIdx()
+	newSnakeBody := req.GetSnake()
+
+	room := s.gameRoom.GameRooms[roomID]
+
+	// update snake body
+	snake := room.Snakes[snakeIdx]
+	snake.Cells = newSnakeBody.Cells
+
+	// update the gameroom with the new snake body
+	room.Snakes[snakeIdx] = snake
+
+	res := &pb.MoveResponse{IsValid: true}
+	return res, nil
+}
+
+func (s *snakeServer) GetGameUpdates(req *pb.GameUpdateRequest, stream pb.SnakeService_GetGameUpdatesServer) error {
+	roomID := req.GetRoomId()
+	player := req.GetPlayer()
+	gameUpdates, err := s.gameRoom.GetGameUpdates(roomID, player, 1)
+
+	fmt.Println("llego a GetGameUpdates")
+	fmt.Println("gameUpdates", gameUpdates)
+
+	for {
+		select {
+		case update := <-gameUpdates:
+			fmt.Println("ASDFASDFASDFASDF", update)
+			err := stream.Send(&update)
+			if err != nil {
+				fmt.Println(err)
+			}
+		default:
+			fmt.Println("no hay nda en el buffer")
+		}
+	}
+	fmt.Println("SE FUE - ")
+	return err
+
+	// for gameUpdate := range gameUpdates {
+	// 	fmt.Println("ASDFASDFASDFASDF", gameUpdate)
+	// 	err := stream.Send(&gameUpdate)
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// }
 }
 
 func newServer() *snakeServer {

@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer } from 'react';
+
+import { MoveRequest, Snake, Coordinate, Direction, GameUpdateRequest } from '../../snake_pb.js'
+
+import { DIRECTION_TICKS, DIRECTIONS, DIRECTION_MAPPER, KEY_CODES_MAPPER } from "../../helpers/constants"
+import { getIsSnakeOutside, getSnakeHead, getIsSnakeClumy, getSnakeWithoutStub, getRandomCoordinate, getIsSnakeEating } from "../../helpers/utils"
 
 import Grid from "../../components/Grid"
 
-import { DIRECTION_TICKS, DIRECTIONS, KEY_CODES_MAPPER } from "../../helpers/constants"
-import { buildGrid, getIsSnakeOutside, getSnakeHead, getIsSnakeClumy, getSnakeWithoutStub, getRandomCoordinate, getIsSnakeEating } from "../../helpers/utils"
 
-
-
-const TICK_RATE = 50;
+const TICK_RATE = 500;
 
 const reducer = (state, action) => {
   switch (action.type) {
@@ -20,32 +21,37 @@ const reducer = (state, action) => {
         },
       };
     case 'SNAKE_MOVE':
-      const isSnakeEating = getIsSnakeEating({ snake: state.snakes.snake1, snack: { coordinate: [3, 3] } });
+      const { snakes, snakeIdx, playground, food } = state
+      const isSnakeEating = getIsSnakeEating({ snake: snakes[snakeIdx], food: food[0] });
 
-      const snakeHead = DIRECTION_TICKS[state.playground.direction](
-        getSnakeHead(state.snakes.snake1)[0],
-        getSnakeHead(state.snakes.snake1)[1]
+      const snakeHead = DIRECTION_TICKS[playground.direction](
+        getSnakeHead(snakes[snakeIdx])[0],
+        getSnakeHead(snakes[snakeIdx])[1]
       );
 
       const snakeTail = isSnakeEating
-        ? state.snakes.snake1
-        : getSnakeWithoutStub(state.snakes.snake1);
+        ? snakes[snakeIdx]
+        : getSnakeWithoutStub(snakes[snakeIdx]);
 
-
-      const snackCoordinate = isSnakeEating
+      const foodCoordinate = isSnakeEating
         ? getRandomCoordinate()
-        : state.snack.coordinate;
+        : food
 
+
+
+      let newSnakes = {}
+      if (snakeIdx === 0) {
+        newSnakes = { 0: [snakeHead, ...snakeTail], 1: [...state.snakes[1]] }
+      } else {
+        newSnakes = { 0: [...state.snakes[0]], 1: [snakeHead, ...snakeTail] }
+      }
 
       return {
         ...state,
         snakes: {
-          snake1: [snakeHead, ...snakeTail],
-          snake2: [...state.snakes.snake2]
+          ...newSnakes
         },
-        snack: {
-          coordinate: snackCoordinate,
-        },
+        food: [...foodCoordinate]
       };
     case 'GAME_OVER':
       return {
@@ -60,24 +66,19 @@ const reducer = (state, action) => {
   }
 };
 
-const GameRoom = ({ game: { array: gameConfig } }) => {
-  const [, , boardConfig, snakes, speed] = gameConfig[0]
-
-  const GRID = buildGrid(boardConfig)
-  const gridSize = GRID.length - 1
-
+const GameRoom = ({ game, snakeService }) => {
+  const { GRID, gridSize, roomID, players, snakes, speed, snakeIdx, food } = game
   const initialState = {
+    snakeIdx,
     playground: {
       direction: DIRECTIONS.UP,
       isGameOver: false,
     },
     snakes: {
-      snake1: [...snakes[0][1]],
-      snake2: [...snakes[1][1]]
+      0: [...snakes[0][1]],
+      1: [...snakes[1][1]]
     },
-    snack: {
-      coordinate: getRandomCoordinate(),
-    },
+    food
   };
 
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -94,20 +95,63 @@ const GameRoom = ({ game: { array: gameConfig } }) => {
   useEffect(() => {
     window.addEventListener('keyup', onChangeDirection, false);
 
+    const gameUpdateRequest = new GameUpdateRequest();
+    gameUpdateRequest.setPlayer(game.pbPlayer)
+    gameUpdateRequest.setRoomid(roomID)
+
+    snakeService.getGameUpdates(gameUpdateRequest, {}, (err, gameUpdateResponse) => {
+      console.log({ gameUpdateResponse })
+    })
+
+
     return () =>
       window.removeEventListener('keyup', onChangeDirection, false);
   }, []);
 
   useEffect(() => {
-    const onTick = () => {
-      getIsSnakeOutside(state.snakes.snake1, gridSize) || getIsSnakeClumy(state.snakes.snake1)
-        ? dispatch({ type: 'GAME_OVER' })
-        : dispatch({ type: 'SNAKE_MOVE' });
-    };
-
-    const interval = setInterval(onTick, TICK_RATE);
-
-    return () => clearInterval(interval);
+    const { snakes, snakeIdx, playground } = state
+    while(!playground.isGameOver) {
+      const onTick = () => {
+        getIsSnakeOutside(snakes[snakeIdx], gridSize) || getIsSnakeClumy(snakes[snakeIdx])
+          ? dispatch({ type: 'GAME_OVER' })
+          : dispatch({ type: 'SNAKE_MOVE' });
+  
+        const snakeCoords = snakes[snakeIdx].map(c => {
+          const pbCoord = new Coordinate();
+          pbCoord.setX(c[0]);
+          pbCoord.setY(c[1]);
+          return pbCoord;
+        });
+  
+        const pbSnake = new Snake();
+        pbSnake.setCellsList(snakeCoords);
+        pbSnake.setDir(DIRECTION_MAPPER[playground.direction]);
+  
+        const moveRequest = new MoveRequest();
+        moveRequest.setRoomid(roomID)
+        moveRequest.setPlayer(game.pbPlayer)
+        moveRequest.setSnake(pbSnake)
+        moveRequest.setSnakeidx(snakeIdx)
+  
+        snakeService.moveSnake(moveRequest, {}, (err, moveResponse) => {
+          // console.log({ err })
+          console.log({ moveResponse })
+        })
+  
+        // const gameUpdateRequest = new GameUpdateRequest();
+        // gameUpdateRequest.setPlayer(game.pbPlayer)
+        // gameUpdateRequest.setRoomid(roomID)
+  
+        // snakeService.getGameUpdates(gameUpdateRequest, {}, (err, gameUpdateResponse) => {
+        //   console.log({ err })
+        //   console.log({ gameUpdateResponse })
+        // })
+      }
+  
+      const interval = setInterval(onTick, TICK_RATE);
+  
+      return () => clearInterval(interval);
+    }
   }, [state]);
 
   return (
@@ -115,8 +159,9 @@ const GameRoom = ({ game: { array: gameConfig } }) => {
       <h1>Fight!</h1>
       <Grid
         grid={GRID}
+        snakeIdx={snakeIdx}
         gridSize={gridSize}
-        snack={state.snack}
+        food={state.food}
         snakes={state.snakes}
         isGameOver={state.playground.isGameOver}
       />
