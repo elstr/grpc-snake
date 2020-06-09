@@ -2,10 +2,12 @@ package matcher
 
 import (
 	helpers "github.com/elstr/grpc-snake/server/helpers"
+	"github.com/google/uuid"
 )
 
 // Match struct will hold to the players
 type Match struct {
+	ID        string
 	PlayerOne *helpers.Player
 	PlayerTwo *helpers.Player
 }
@@ -25,21 +27,19 @@ func Instanciate() Instance {
 
 // Match will make the match between two players
 func (i *Instance) Match(player *helpers.Player) chan *Match {
-	// fmt.Println("Match service - player: ", *player)
-
 	// https://www.opsdash.com/blog/job-queues-in-go.html
 	select {
 	case waitingPlayers := <-i.waitingPlayers: // I'm draining the waitingPlayers channel and checking the case
 
 		// Assign the 2nd player to waitingPlayers
 		waitingPlayers.PlayerTwo = player
-
+		// Set a new unique ID. This will be used as the game room ID.
+		waitingPlayers.ID = uuid.New().String()
 		// I need to assign twice waitingPlayers to matched because it's going to be consumed by two players
 		i.matched <- waitingPlayers
 		i.matched <- waitingPlayers
 
 	default:
-		// fmt.Println("entra en waiting porque entra en default")
 		i.waitingPlayers <- &Match{PlayerOne: player}
 	}
 

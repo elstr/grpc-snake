@@ -46,7 +46,8 @@ const App = (props) => {
       pbPlayer.setName(playerName)
 
       const newPlayer = { id: pbPlayer.array[0], name: pbPlayer.array[1] }
-
+      console.log({newPlayer});
+      
       setLoading(true)
       setPlayer(newPlayer)
 
@@ -59,16 +60,17 @@ const App = (props) => {
         else {
           const res = await gameRoom
           const gameRoomConfig = res['array'][0]
-          const [, players, boardConfig, snakes, speed] = gameRoomConfig
-          const snakeIdx = players.map(p => p[1] === playerID).indexOf(true)
+          const [roomID, players, boardConfig, snakes, speed] = gameRoomConfig
+          const snakeIdx = players.map(p => p[0] === playerID).indexOf(true)
           const player = { ...players[snakeIdx] }
           const GRID = buildGrid(boardConfig)
           const gridSize = GRID.length - 1
 
+          console.log("boardConfig[2]", boardConfig[2])
           const gameConfig = {
             GRID,
             gridSize,
-            roomID: newPlayer.id,
+            roomID,
             player,
             players,
             pbPlayer,

@@ -24,9 +24,9 @@ func Instanciate() Instance {
 }
 
 // NewGameRoom returns a new game room with two players ready to play
-func (i *Instance) NewGameRoom(playerOne helpers.Player, playerTwo helpers.Player) (*pb.GameRoom, error) {
+func (i *Instance) NewGameRoom(gameRoomID string, playerOne helpers.Player, playerTwo helpers.Player) (*pb.GameRoom, error) {
 	food := []*pb.Coordinate{
-		{X: 10, Y: 21},
+		{X: 8, Y: 20},
 	}
 	board := &pb.BoardConfig{
 		Width:  35,
@@ -39,10 +39,8 @@ func (i *Instance) NewGameRoom(playerOne helpers.Player, playerTwo helpers.Playe
 	snakeOne, snakeTwo := helpers.CreateInitialSnakes(board.Width, board.Height)
 	snakes := []*pb.Snake{snakeOne, snakeTwo}
 
-	// this sets twice the roomID, with different uuid values
-	// roomID := uuid.New().String()
-
 	newGame := &pb.GameRoom{
+		RoomId:  gameRoomID,
 		Players: players,
 		Board:   board,
 		Snakes:  snakes,
@@ -54,8 +52,6 @@ func (i *Instance) NewGameRoom(playerOne helpers.Player, playerTwo helpers.Playe
 	i.GameRooms[players[0].Id] = newGame
 	i.GameRooms[players[1].Id] = newGame
 
-	// fmt.Println(i.GameRooms)
-
 	return newGame, nil
 }
 
@@ -64,29 +60,31 @@ func (i *Instance) RunUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx
 	go i.GetUpdates(gameRoom, player, snakeIdx, ch)
 }
 
-// func (i *Instance) RunUpdates(roomID string, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
-// 	go i.GetUpdates(i.GameRooms[roomID], player, snakeIdx, ch)
-// }
-
 // GetUpdates feeds the channel with game updates
 func (i *Instance) GetUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
-	// func (i *Instance) GetUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
-	// for gameRoom.State == pb.State_PLAYING {
 	for {
-		scores := []int32{10, 10}             // missing: score logic
-		fruit := &pb.Coordinate{X: 20, Y: 20} // randomize
+		scores := []int32{10, 10}
+		foodCoords := gameRoom.Board.Food[0]
+		snakeHead := gameRoom.Snakes[snakeIdx].Cells[0]
 
-		fmt.Println("gameRoom.Snakes[0]", gameRoom.Snakes[0])
-		fmt.Println("gameRoom.Snakes[1]", gameRoom.Snakes[1])
+		fmt.Println("snakeHead", snakeHead)
+		fmt.Println("foodCoords X:", foodCoords.X, " Y: ", foodCoords.Y)
+		// 1. validate if snake ate the food
+		var newFood *pb.Coordinate = foodCoords
+		if snakeHead.X == foodCoords.X && snakeHead.Y == foodCoords.Y {
+			// 2. get new random coords for food
+			newFood = helpers.GetNewRandomFoodCoords(gameRoom.Board.Width, gameRoom.Board.Height)
+			gameRoom.Board.Food[0] = newFood
+		}
 
 		update := &pb.GameUpdateResponse{
 			Scores: scores,
-			Fruit:  fruit,
+			Fruit:  newFood,
 			Snakes: gameRoom.Snakes,
 			State:  pb.State_PLAYING,
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(300 * time.Millisecond)
 		select {
 		case ch <- update:
 		}

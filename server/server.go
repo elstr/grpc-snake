@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -22,6 +23,7 @@ type snakeServer struct {
 	pb.UnimplementedSnakeServiceServer
 	matcher  matcher.Instance
 	gameRoom gameroom.Instance
+	mu       sync.Mutex
 }
 
 func (*snakeServer) TestConnection(context context.Context, req *pb.TestRequest) (*pb.TestResponse, error) {
@@ -31,19 +33,26 @@ func (*snakeServer) TestConnection(context context.Context, req *pb.TestRequest)
 }
 
 func (s *snakeServer) StartNewGame(context context.Context, req *pb.NewGameRequest) (*pb.NewGameResponse, error) {
-	// fmt.Println("Got a new game request")
 	playerData := req.GetPlayer()
+	fmt.Println("playerData", playerData)
 	player := helpers.NewPlayer(playerData.Id, playerData.Name)
 
 	match := s.matcher.Match(&player) // This returns a channel
 	playersMatched := <-match         // This takes the values of the channel so I can access them
 
-	gameRoom, _ := s.gameRoom.NewGameRoom(*playersMatched.PlayerOne, *playersMatched.PlayerTwo)
-	s.gameRoom.GameRooms[playerData.Id] = gameRoom
+	// 1. lock the function to be able to create a gameroom with the specified match id
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	res := &pb.NewGameResponse{Game: gameRoom}
-
-	return res, nil
+	// 2. if the game room does not exist, we create a new one with both players and the matchID (playersMatched.ID)
+	gameRoom, exists := s.gameRoom.GameRooms[playersMatched.ID]
+	if !exists {
+		gameRoom, _ = s.gameRoom.NewGameRoom(playersMatched.ID, *playersMatched.PlayerOne, *playersMatched.PlayerTwo)
+		// 3. save the gameroom in our collection with the matchID as key
+		s.gameRoom.GameRooms[playersMatched.ID] = gameRoom
+	}
+	// 4. return the gameroom that both players will be updating
+	return &pb.NewGameResponse{Game: gameRoom}, nil
 }
 
 func (s *snakeServer) MoveSnake(context context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
@@ -51,30 +60,33 @@ func (s *snakeServer) MoveSnake(context context.Context, req *pb.MoveRequest) (*
 	snakeIdx := req.GetSnakeIdx()
 	newSnakeBody := req.GetSnake()
 
+	// 1. get the game room to be updated
 	room := s.gameRoom.GameRooms[roomID]
 
-	// update snake body
+	// 2. update snake body
 	snake := room.Snakes[snakeIdx]
 	snake.Cells = newSnakeBody.Cells
 
-	fmt.Println("MOVE REQUEST - nueva snake - ", snake)
-	fmt.Println("")
-	// update the gameroom with the new snake body
+	// 3. update the gameroom with the new snake body
 	room.Snakes[snakeIdx] = snake
 
-	res := &pb.MoveResponse{IsValid: true}
-	return res, nil
+	return &pb.MoveResponse{IsValid: true}, nil
 }
 
 func (s *snakeServer) GetGameUpdates(req *pb.GameUpdateRequest, stream pb.SnakeService_GetGameUpdatesServer) error {
 	roomID := req.GetRoomId()
+	fmt.Println(roomID)
 	player := req.GetPlayer()
 	updates := make(chan *pb.GameUpdateResponse)
 
 	gameRoom := s.gameRoom.GameRooms[roomID]
-
-	s.gameRoom.RunUpdates(gameRoom, player, 1, updates)
-	// s.gameRoom.RunUpdates(roomID, player, 1, updates)
+	var snakeIdx int = 0
+	for i, p := range gameRoom.Players {
+		if p.Id == player.Id {
+			snakeIdx = i
+		}
+	}
+	s.gameRoom.RunUpdates(gameRoom, player, snakeIdx, updates)
 
 	for {
 		select {

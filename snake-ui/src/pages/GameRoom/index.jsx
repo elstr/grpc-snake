@@ -8,7 +8,7 @@ import { getIsSnakeOutside, getSnakeHead, getIsSnakeClumy, getSnakeWithoutStub, 
 import Grid from "../../components/Grid"
 
 
-const TICK_RATE = 500;
+const TICK_RATE = 200;
 
 const reducer = (state, action) => {
   const { snakeIdx, playground, food } = state
@@ -22,71 +22,55 @@ const reducer = (state, action) => {
         },
       };
     case 'SNAKE_MOVE':
-      const { snakes } = state
-      const isSnakeEating = getIsSnakeEating({ snake: snakes[snakeIdx], food: food[0] });
+      const currentSnake = state[`snake${snakeIdx}`]
+      const isSnakeEating = getIsSnakeEating({ snake: currentSnake, food: food });
 
+      console.log("isSnakeEating" ,isSnakeEating)
       const snakeHead = DIRECTION_TICKS[playground.direction](
-        getSnakeHead(snakes[snakeIdx])[0],
-        getSnakeHead(snakes[snakeIdx])[1]
+        getSnakeHead(currentSnake)[0],
+        getSnakeHead(currentSnake)[1]
       );
 
       const snakeTail = isSnakeEating
-        ? snakes[snakeIdx]
-        : getSnakeWithoutStub(snakes[snakeIdx]);
+        ? currentSnake
+        : getSnakeWithoutStub(currentSnake);
 
-      const foodCoordinate = isSnakeEating
-        ? getRandomCoordinate()
-        : food
+      // const foodCoordinate = isSnakeEating
+      //   ? getRandomCoordinate()
+      //   : food
 
-      let newSnakes = {}
-      if (snakeIdx === 0) {
-        newSnakes = { 0: [snakeHead, ...snakeTail], 1: [...state.snakes[1]] }
-      } else {
-        newSnakes = { 0: [...state.snakes[0]], 1: [snakeHead, ...snakeTail] }
-      }
+      const newSnake = [snakeHead, ...snakeTail]
 
       return {
         ...state,
-        snakes: {
-          ...newSnakes
-        },
-        food: [...foodCoordinate]
+        [`snake${snakeIdx}`]: newSnake
+        // food: [...foodCoordinate]
       }
+    case 'UPDATES':
+      const {opponentSnake, snakeOpponentIdx, newFood} = action
 
-    case 'SNAKE_MOVE_OPPONENT':
-      const {opponentSnake, snakeOpponentIdx} = action
-     
-      const isOpponentSnakeEating = getIsSnakeEating({ snake: opponentSnake, food: food[0] });
-
-      const snakeOpponentHead = DIRECTION_TICKS[playground.direction](
-        getSnakeHead(opponentSnake)[0],
-        getSnakeHead(opponentSnake)[1]
-      );
-
-      const snakeOpponentTail = isOpponentSnakeEating
-        ? opponentSnake
-        : getSnakeWithoutStub(opponentSnake);
-
-
-      const newFoodCoordinate = isOpponentSnakeEating
-        ? getRandomCoordinate()
-        : food
-
-      let newUpdatedSnakes = {}
-      if (snakeOpponentIdx === 0) {
-        newUpdatedSnakes = { 0: [snakeOpponentHead, ...snakeOpponentTail], 1: [...state.snakes[1]] }
+      let newState = Object.assign({}, state)
+      if (newFood) {
+        newState.food = [...newFood]
       } else {
-        newUpdatedSnakes = { 0: [...state.snakes[0]], 1: [snakeOpponentHead, ...snakeOpponentTail] }
+        newState = {
+          ...state,
+          [`snake${snakeOpponentIdx}`]: [...opponentSnake]
+        }
       }
-
-
+      return newState
+    // case 'RENDER_NEW_FOOD':
+    //   const {food} = action
+    //   const newState = {
+    //     ...state,
+    //     food: [...food]
+    //   };
+    //   console.log({newState});
+      
       return {
         ...state,
-        snakes: {
-          ...newUpdatedSnakes
-        },
-        food: [...newFoodCoordinate]
-      }
+        food: [...food]
+      };
     case 'GAME_OVER':
       return {
         ...state,
@@ -108,11 +92,9 @@ const GameRoom = ({ game, snakeService }) => {
       direction: DIRECTIONS.UP,
       isGameOver: false,
     },
-    snakes: {
-      0: [...snakes[0][1]],
-      1: [...snakes[1][1]]
-    },
-    food
+    snake0: [...snakes[0][1]],
+    snake1: [...snakes[1][1]],
+    food: [...food[0]]
   };
 
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -138,21 +120,20 @@ const GameRoom = ({ game, snakeService }) => {
       let snakeOpponentIdx = 0
       if (state.snakeIdx === 0) snakeOpponentIdx = 1
 
-      const [,,, snakes] = response.array
+      const [,food,, snakes] = response.array
 
-      console.log("opponentSnake", snakes[snakeOpponentIdx][1])
-
-      dispatch({ type: 'SNAKE_MOVE_OPPONENT', opponentSnake: snakes[snakeOpponentIdx][1], snakeOpponentIdx: snakeOpponentIdx });
+     
+      let newFood = null
+      if(state.food && state.food[0] !== food[0] && state.food[1] !== food[1]) {
+         newFood = food
+      }
+      dispatch({ type: 'UPDATES', opponentSnake: snakes[snakeOpponentIdx][1], snakeOpponentIdx: snakeOpponentIdx, newFood: newFood });
 
     });
-    stream.on('status', function (status) {
-      console.log(status.code);
-      console.log(status.details);
-      console.log(status.metadata);
-    });
+  
     stream.on('end', function (end) {
       // stream end signal
-      console.log("end")
+      // console.log("end")
     });
 
     return () =>
@@ -160,15 +141,15 @@ const GameRoom = ({ game, snakeService }) => {
   }, []);
 
   useEffect(() => {
-    const { snakes, snakeIdx, playground } = state
+    const { snakeIdx, playground } = state
+    const currentSnake = state[`snake${snakeIdx}`]
     while (!playground.isGameOver) {
       const onTick = () => {
-        getIsSnakeOutside(snakes[snakeIdx], gridSize) || getIsSnakeClumy(snakes[snakeIdx])
+        getIsSnakeOutside(currentSnake, gridSize) || getIsSnakeClumy(currentSnake)
           ? dispatch({ type: 'GAME_OVER' })
           : dispatch({ type: 'SNAKE_MOVE' });
 
-        console.log("snakes[snakeIdx]", snakes[snakeIdx])
-        const snakeCoords = snakes[snakeIdx].map(c => {
+        const snakeCoords = currentSnake.map(c => {
           const pbCoord = new Coordinate();
           pbCoord.setX(c[0]);
           pbCoord.setY(c[1]);
@@ -186,10 +167,6 @@ const GameRoom = ({ game, snakeService }) => {
         moveRequest.setSnakeidx(snakeIdx)
 
         snakeService.moveSnake(moveRequest, {})
-        //   , (err, moveResponse) => {
-        //   // console.log({ err })
-        //   // console.log({ moveResponse })
-        // })
       }
 
       const interval = setInterval(onTick, TICK_RATE);
@@ -206,7 +183,7 @@ const GameRoom = ({ game, snakeService }) => {
         snakeIdx={snakeIdx}
         gridSize={gridSize}
         food={state.food}
-        snakes={state.snakes}
+        snakes={{0: [...state.snake0], 1: [...state.snake1]}}
         isGameOver={state.playground.isGameOver}
       />
     </div>

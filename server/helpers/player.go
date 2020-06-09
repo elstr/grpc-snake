@@ -7,6 +7,6 @@ type Player struct {
 }
 
 // NewPlayer returns an actual player with the given data
-func NewPlayer(name string, id string) Player {
-	return Player{Name: name, ID: id}
+func NewPlayer(id string, name string) Player {
+	return Player{ID: id, Name: name}
 }

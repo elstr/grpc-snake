@@ -16,8 +16,8 @@ const getCellCs = (isGameOver, snakes, food, x, y, gridSize, snakeIdx) => {
         'grid-cell-food': isPosition(
             x,
             y,
-            food[0][0],
-            food[0][1]
+            food[0],
+            food[1]
         ),
         'grid-cell-hit':
             isGameOver &&
@@ -48,12 +48,16 @@ const getRandomCoordinate = (gridSize) => [getRandomNumberFromRange(1, gridSize 
 
 
 const getIsSnakeEating = ({ snake, food }) =>
-    isPosition(
+  {
+      console.log({snake})
+      console.log({food})
+      return   isPosition(
         getSnakeHead(snake)[0],
         getSnakeHead(snake)[1],
         food[0],
         food[1]
     )
+  }
 
 const getIsSnakeOutside = (snake, gridSize) =>
     (getSnakeHead(snake)[0] >= gridSize ||
