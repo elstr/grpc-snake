@@ -3,6 +3,7 @@ package gameroom
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	pb "github.com/elstr/grpc-snake/proto"
 	helpers "github.com/elstr/grpc-snake/server/helpers"
@@ -58,43 +59,36 @@ func (i *Instance) NewGameRoom(playerOne helpers.Player, playerTwo helpers.Playe
 	return newGame, nil
 }
 
-// GetGameUpdates returns the game updates (new food and opponents movements)
-func (i *Instance) GetGameUpdates(roomID string, player *pb.Player, snakeIdx int) (chan pb.GameUpdateResponse, error) {
-	// chan pb.GameUpdateResponse will return all updates
-	// 1. fill the channel with the updates
-	// 2. return the channel and iterate in the server
-	// An external goroutine will push events to this channel as they come
-	gameRoom := i.GameRooms[roomID]
-	go i.GetUpdates(gameRoom, player, snakeIdx)
-	return i.Updates, nil
+// RunUpdates start running the game updates (new food and opponents movements)
+func (i *Instance) RunUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
+	go i.GetUpdates(gameRoom, player, snakeIdx, ch)
 }
 
-// GetUpdates will be called as a goroutine that will feed the channel
-func (i *Instance) GetUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx int) {
+// func (i *Instance) RunUpdates(roomID string, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
+// 	go i.GetUpdates(i.GameRooms[roomID], player, snakeIdx, ch)
+// }
+
+// GetUpdates feeds the channel with game updates
+func (i *Instance) GetUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
+	// func (i *Instance) GetUpdates(gameRoom *pb.GameRoom, player *pb.Player, snakeIdx int, ch chan *pb.GameUpdateResponse) {
 	// for gameRoom.State == pb.State_PLAYING {
 	for {
 		scores := []int32{10, 10}             // missing: score logic
 		fruit := &pb.Coordinate{X: 20, Y: 20} // randomize
 
-		update := pb.GameUpdateResponse{
+		fmt.Println("gameRoom.Snakes[0]", gameRoom.Snakes[0])
+		fmt.Println("gameRoom.Snakes[1]", gameRoom.Snakes[1])
+
+		update := &pb.GameUpdateResponse{
 			Scores: scores,
 			Fruit:  fruit,
 			Snakes: gameRoom.Snakes,
 			State:  pb.State_PLAYING,
 		}
 
-		fmt.Println("update - ", update)
-
-		// time.Sleep(100 * time.Millisecond)
-
-		end := false
-		for !end {
-			select {
-			case i.Updates <- update:
-				end = true
-			default:
-				fmt.Println("estoy bloqueado en el buffer")
-			}
+		time.Sleep(1 * time.Second)
+		select {
+		case ch <- update:
 		}
 
 	}

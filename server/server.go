@@ -57,6 +57,8 @@ func (s *snakeServer) MoveSnake(context context.Context, req *pb.MoveRequest) (*
 	snake := room.Snakes[snakeIdx]
 	snake.Cells = newSnakeBody.Cells
 
+	fmt.Println("MOVE REQUEST - nueva snake - ", snake)
+	fmt.Println("")
 	// update the gameroom with the new snake body
 	room.Snakes[snakeIdx] = snake
 
@@ -67,33 +69,23 @@ func (s *snakeServer) MoveSnake(context context.Context, req *pb.MoveRequest) (*
 func (s *snakeServer) GetGameUpdates(req *pb.GameUpdateRequest, stream pb.SnakeService_GetGameUpdatesServer) error {
 	roomID := req.GetRoomId()
 	player := req.GetPlayer()
-	gameUpdates, err := s.gameRoom.GetGameUpdates(roomID, player, 1)
+	updates := make(chan *pb.GameUpdateResponse)
 
-	fmt.Println("llego a GetGameUpdates")
-	fmt.Println("gameUpdates", gameUpdates)
+	gameRoom := s.gameRoom.GameRooms[roomID]
+
+	s.gameRoom.RunUpdates(gameRoom, player, 1, updates)
+	// s.gameRoom.RunUpdates(roomID, player, 1, updates)
 
 	for {
 		select {
-		case update := <-gameUpdates:
-			fmt.Println("ASDFASDFASDFASDF", update)
-			err := stream.Send(&update)
+		case update := <-updates:
+			err := stream.Send(update)
 			if err != nil {
 				fmt.Println(err)
 			}
-		default:
-			fmt.Println("no hay nda en el buffer")
 		}
 	}
-	fmt.Println("SE FUE - ")
-	return err
 
-	// for gameUpdate := range gameUpdates {
-	// 	fmt.Println("ASDFASDFASDFASDF", gameUpdate)
-	// 	err := stream.Send(&gameUpdate)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 	}
-	// }
 }
 
 func newServer() *snakeServer {
